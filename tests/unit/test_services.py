@@ -1,6 +1,6 @@
 import pytest
-from allocation.adapters import repository
-from allocation.service_layer import services, unit_of_work
+from src.allocation.adapters import repository
+from src.allocation.service_layer import services, unit_of_work
 
 
 class FakeRepository(repository.AbstractRepository):

@@ -1,5 +1,5 @@
 import abc
-from allocation.domain import model
+from src.allocation.domain import model
 
 
 class AbstractRepository(abc.ABC):
@@ -9,6 +9,17 @@ class AbstractRepository(abc.ABC):
 
     @abc.abstractmethod
     def get(self, reference) -> model.Batch:
+        raise NotImplementedError
+
+
+class AbstractProductRepository(abc.ABC):
+
+    @abc.abstractmethod
+    def add(self, product):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get(self, sku) -> model.Product:
         raise NotImplementedError
 
 
