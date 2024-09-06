@@ -28,6 +28,12 @@ def insert_order_line(session):
     return orderline_id
 
 
+def insert_product(session, sku="GENERIC-SOFA", product_version=1):
+    session.execute(
+        "INSERT INTO products (sku, version_number) VALUES (:sku, :version)",
+        dict(sku=sku, version=product_version),
+    )
+
 def insert_batch(session, batch_id):
     session.execute(
         "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
@@ -48,20 +54,23 @@ def insert_allocation(session, orderline_id, batch_id):
         dict(orderline_id=orderline_id, batch_id=batch_id),
     )
 
-
+# fix it!
 def test_repository_can_retrieve_a_batch_with_allocations(session):
     orderline_id = insert_order_line(session)
+    insert_product(session)
+
     batch1_id = insert_batch(session, "batch1")
     insert_batch(session, "batch2")
     insert_allocation(session, orderline_id, batch1_id)
 
     repo = repository.SqlAlchemyRepository(session)
-    retrieved = repo.get("batch1")
+    retrieved_product = repo.get("GENERIC-SOFA")
+    retrieved_batch = retrieved_product.batches[0]
 
-    expected = model.Batch("batch1", "GENERIC-SOFA", 100, eta=None)
-    assert retrieved == expected  # Batch.__eq__ only compares reference
-    assert retrieved.sku == expected.sku
-    assert retrieved._purchased_quantity == expected._purchased_quantity
-    assert retrieved._allocations == {
+    expected_batch = model.Batch("batch1", "GENERIC-SOFA", 100, eta=None)
+    assert retrieved_batch == expected_batch  # Batch.__eq__ only compares reference
+    assert retrieved_batch.sku == expected_batch.sku
+    assert retrieved_batch._purchased_quantity == expected_batch._purchased_quantity
+    assert retrieved_batch._allocations == {
         model.OrderLine("order1", "GENERIC-SOFA", 12),
     }

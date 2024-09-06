@@ -1,9 +1,18 @@
+import threading
+import time
+import traceback
+from typing import List
 import pytest
 from src.allocation.domain import model
 from src.allocation.service_layer import unit_of_work
+from tests.random_refs import random_sku, random_batchref, random_orderid
 
 
-def insert_batch(session, ref, sku, qty, eta):
+def insert_batch(session, ref, sku, qty, eta, product_version=1):
+    session.execute(
+        "INSERT INTO products (sku, version_number) VALUES (:sku, :version)",
+        dict(sku=sku, version=product_version),
+    )
     session.execute(
         "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
         " VALUES (:ref, :sku, :qty, :eta)",
@@ -31,9 +40,9 @@ def test_uow_can_retrieve_a_batch_and_allocate_to_it(session_factory):
 
     uow = unit_of_work.SqlAlchemyUnitOfWork(session_factory)
     with uow:
-        batch = uow.batches.get(reference="batch1")
+        product = uow.products.get(sku="HIPSTER-WORKBENCH")
         line = model.OrderLine("o1", "HIPSTER-WORKBENCH", 10)
-        batch.allocate(line)
+        product.allocate(line)
         uow.commit()
 
     batchref = get_allocated_batch_ref(session, "o1", "HIPSTER-WORKBENCH")
@@ -88,8 +97,8 @@ def test_concurrent_updates_to_version_are_not_allowed(postgres_session_factory)
     exceptions = []  # type: List[Exception]
     try_to_allocate_order1 = lambda: try_to_allocate(order1, sku, exceptions)
     try_to_allocate_order2 = lambda: try_to_allocate(order2, sku, exceptions)
-    thread1 = threading.Thread(target=try_to_allocate_order1)  #(1)
-    thread2 = threading.Thread(target=try_to_allocate_order2)  #(1)
+    thread1 = threading.Thread(target=try_to_allocate_order1)
+    thread2 = threading.Thread(target=try_to_allocate_order2)
     thread1.start()
     thread2.start()
     thread1.join()
@@ -99,9 +108,9 @@ def test_concurrent_updates_to_version_are_not_allowed(postgres_session_factory)
         "SELECT version_number FROM products WHERE sku=:sku",
         dict(sku=sku),
     )
-    assert version == 2  #(2)
+    assert version == 2
     [exception] = exceptions
-    assert "could not serialize access due to concurrent update" in str(exception)  #(3)
+    assert "could not serialize access due to concurrent update" in str(exception)
 
     orders = session.execute(
         "SELECT orderid FROM allocations"
@@ -110,6 +119,6 @@ def test_concurrent_updates_to_version_are_not_allowed(postgres_session_factory)
         " WHERE order_lines.sku=:sku",
         dict(sku=sku),
     )
-    assert orders.rowcount == 1  #(4)
+    assert orders.rowcount == 1
     with unit_of_work.SqlAlchemyUnitOfWork() as uow:
         uow.session.execute("select 1")
