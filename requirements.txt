@@ -5,9 +5,12 @@ packaging==24.1
 pluggy==1.5.0
 pytest==8.2.2
 SQLAlchemy==1.4.52
+tenacity==9.0.0
 tomli==2.0.1
 typing_extensions==4.12.2
 requests==2.32.3
 
 flask
+# Flask==3.0.3
 psycopg2-binary
+# psycopg2-binary==2.9.9
