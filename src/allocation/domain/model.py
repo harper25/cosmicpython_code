@@ -5,6 +5,7 @@ from typing import Optional, List, Set
 
 from src.allocation.domain import events
 
+
 class OutOfStock(Exception):
     pass
 
@@ -27,6 +28,17 @@ class Product:
             self.events.append(events.OutOfStock(line.sku))  #(2)
             # raise OutOfStock(f"Out of stock for sku {line.sku}")  #(3)
             return None
+
+
+    def change_batch_quantity(self, ref: str, qty: int):
+        # how about self.version_number? should it be incremented here as well?
+        batch = next(b for b in self.batches if b.reference == ref)
+        batch._purchased_quantity = qty
+        while batch.available_quantity < 0:
+            line = batch.deallocate_one()
+            self.events.append(
+                events.AllocationRequired(line.orderid, line.sku, line.qty)
+            )
 
 
 @dataclass(unsafe_hash=True)
@@ -66,9 +78,12 @@ class Batch:
         if self.can_allocate(line):
             self._allocations.add(line)
 
-    def deallocate(self, line: OrderLine):
+    def deallocate(self, line: OrderLine): # legacy
         if line in self._allocations:
             self._allocations.remove(line)
+
+    def deallocate_one(self) -> OrderLine:
+        return self._allocations.pop()
 
     @property
     def allocated_quantity(self) -> int:
