@@ -189,10 +189,10 @@ class TestChangeBatchQuantity:
         messagebus.handle(commands.ChangeBatchQuantity("batch1", 25), uow)
 
         # assert on new events emitted rather than downstream side-effects
-        [reallocation_command] = uow.events_published
-        assert isinstance(reallocation_command, commands.Allocate)
-        assert reallocation_command.orderid in {"order1", "order2"}
-        assert reallocation_command.sku == "INDIFFERENT-TABLE"
+        [allocate_order1, allocate_order2, reallocate] = uow.events_published
+        assert isinstance(reallocate, commands.Allocate)
+        assert reallocate.orderid in {"order1", "order2"}
+        assert reallocate.sku == "INDIFFERENT-TABLE"
 
         assert batch1.available_quantity == 5   # deallocated successfully
         assert batch2.available_quantity == 50  # reallocation is not done, we are testing in isolation

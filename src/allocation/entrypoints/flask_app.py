@@ -1,6 +1,19 @@
 from datetime import datetime
 from flask import Flask, request
 
+import logging
+import os
+import sys
+
+LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
+logging.basicConfig(level=LOGLEVEL)
+
+logger = logging.getLogger(__name__)
+
+logger.debug(f"PYTHONPATH={os.environ.get('PYTHONPATH')}")
+logger.debug(f"sys.path={sys.path}")
+logger.debug(f"{os.getcwd()=}")
+
 from src.allocation.domain import commands
 from src.allocation.adapters import orm
 from src.allocation.service_layer import messagebus, unit_of_work
