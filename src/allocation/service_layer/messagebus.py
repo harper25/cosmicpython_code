@@ -17,7 +17,10 @@ def handle(
         event = queue.pop(0)  #(3)
         for handler in HANDLERS[type(event)]:  #(3)
             results.append(handler(event, uow=uow))
-            queue.extend(uow.collect_new_events())  #(5)
+            # queue.extend(uow.collect_new_events())  #(5)
+            new_events = uow.collect_new_events()
+            if new_events: # hack for testing events in isolation
+                queue.extend(new_events)
     return results # ugly hack, will be fixed later
 
 

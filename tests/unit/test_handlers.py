@@ -118,6 +118,20 @@ class TestAllocate:
             )
 
 
+# Unit test event handlers in isolation with a FakeMessageBus - nice!
+# Needed for test: TestChangeBatchQuantity::test_reallocates_if_necessary_isolated
+class FakeUnitOfWorkWithFakeMessageBus(FakeUnitOfWork):
+    def __init__(self):
+        super().__init__()
+        self.events_published = []  # type: List[events.Event] - attribute added only for testing!
+
+    def collect_new_events(self):
+        for product in self.products.seen:
+            while product.events:
+                # a change in handle() function is required, not to extend queue with None events
+                self.events_published.append(product.events.pop(0))
+
+
 class TestChangeBatchQuantity:
     def test_changes_available_quantity(self):
         uow = FakeUnitOfWork()
@@ -151,3 +165,36 @@ class TestChangeBatchQuantity:
         assert batch1.available_quantity == 5  #(2)
         # and 20 will be reallocated to the next batch
         assert batch2.available_quantity == 30  #(2)
+
+    # ADDITOINAL TEST, testing the handler in isolation (not required by the book)
+    # We do not need to test the whole system, we can test the handlers in isolation.
+    # Instead of collecting and handling events, we just record them in a list.
+    # BatchQuantityChanged event optionally triggers AllocationRequired event.
+    # Command:
+    # pytest -vvv tests/unit/test_handlers.py::TestChangeBatchQuantity::test_reallocates_if_necessary_isolated
+    def test_reallocates_if_necessary_isolated(self):
+        uow = FakeUnitOfWorkWithFakeMessageBus()
+
+        # test setup as before
+        event_history = [
+            events.BatchCreated("batch1", "INDIFFERENT-TABLE", 50, None),
+            events.BatchCreated("batch2", "INDIFFERENT-TABLE", 50, date.today()),
+            events.AllocationRequired("order1", "INDIFFERENT-TABLE", 20),
+            events.AllocationRequired("order2", "INDIFFERENT-TABLE", 20),
+        ]
+        for e in event_history:
+            messagebus.handle(e, uow)
+        [batch1, batch2] = uow.products.get(sku="INDIFFERENT-TABLE").batches
+        assert batch1.available_quantity == 10
+        assert batch2.available_quantity == 50
+
+        messagebus.handle(events.BatchQuantityChanged("batch1", 25), uow)
+
+        # assert on new events emitted rather than downstream side-effects
+        [reallocation_event] = uow.events_published
+        assert isinstance(reallocation_event, events.AllocationRequired)
+        assert reallocation_event.orderid in {"order1", "order2"}
+        assert reallocation_event.sku == "INDIFFERENT-TABLE"
+
+        assert batch1.available_quantity == 5   # deallocated successfully
+        assert batch2.available_quantity == 50  # reallocation is not done, we are testing in isolation
