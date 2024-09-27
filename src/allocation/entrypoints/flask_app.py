@@ -1,5 +1,5 @@
 from datetime import datetime
-from flask import Flask, request
+from flask import Flask, jsonify, request
 
 import logging
 import os
@@ -14,6 +14,7 @@ logger.debug(f"PYTHONPATH={os.environ.get('PYTHONPATH')}")
 logger.debug(f"sys.path={sys.path}")
 logger.debug(f"{os.getcwd()=}")
 
+from src.allocation import views
 from src.allocation.domain import commands
 from src.allocation.adapters import orm
 from src.allocation.service_layer import messagebus, unit_of_work
@@ -49,4 +50,13 @@ def allocate_endpoint():
     except InvalidSku as e:
         return {"message": str(e)}, 400
 
-    return {"batchref": batchref}, 201
+    return "OK", 202
+
+
+@app.route("/allocations/<orderid>", methods=["GET"])
+def allocations_view_endpoint(orderid):
+    uow = unit_of_work.SqlAlchemyUnitOfWork()
+    result = views.allocations(orderid, uow)
+    if not result:
+        return "not found", 404
+    return jsonify(result), 200
