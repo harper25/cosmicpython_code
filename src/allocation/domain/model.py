@@ -6,10 +6,6 @@ from typing import Optional, List, Set
 from src.allocation.domain import commands, events
 
 
-class OutOfStock(Exception):
-    pass
-
-
 class Product:
     def __init__(self, sku: str, batches: List[Batch], version_number: int = 0):
         self.sku = sku
@@ -42,9 +38,15 @@ class Product:
         # how about self.version_number? should it be incremented here as well?
         batch = next(b for b in self.batches if b.reference == ref)
         batch._purchased_quantity = qty
+
+        print(f"{batch.available_quantity=}")
+
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
-            self.events.append(commands.Allocate(line.orderid, line.sku, line.qty))
+            print(f"Line deallocated: {line=}")
+            # self.events.append(commands.Allocate(line.orderid, line.sku, line.qty))
+            self.events.append(events.Deallocated(line.orderid, line.sku, line.qty))
+            print(f"{self.events=}")
 
 
 @dataclass(unsafe_hash=True)

@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 import pytest
-from src.allocation.domain.model import Product, OrderLine, Batch, OutOfStock
+from src.allocation.domain.model import Product, OrderLine, Batch
 from src.allocation.domain import events
 
 
